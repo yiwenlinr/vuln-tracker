@@ -1,3 +1,4 @@
+-- Create the users table to store application accounts
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -7,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create the sites table to store tracked assets or applications
 CREATE TABLE IF NOT EXISTS sites (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
@@ -18,6 +20,7 @@ CREATE TABLE IF NOT EXISTS sites (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create the findings table to store security issues linked to a site
 CREATE TABLE IF NOT EXISTS findings (
   id INT AUTO_INCREMENT PRIMARY KEY,
   site_id INT NOT NULL,
@@ -32,5 +35,10 @@ CREATE TABLE IF NOT EXISTS findings (
   recommendation TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_findings_site FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+
+  -- Link each finding to its parent site
+  CONSTRAINT fk_findings_site 
+    FOREIGN KEY (site_id) 
+    REFERENCES sites(id) 
+    ON DELETE CASCADE
 );

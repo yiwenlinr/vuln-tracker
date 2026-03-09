@@ -1,24 +1,27 @@
 const jwt = require("jsonwebtoken");
 
-/**
- * Auth middleware (JWT).
- * - Expects: Authorization: Bearer <token>
- * - On success: attaches decoded payload to req.user
- * - On failure: returns 401
- */
+// Middleware to protect private routes using JWT
 function requireAuth(req, res, next) {
+  // Read the Authorization header
   const authHeader = req.headers.authorization || "";
+
+  // Extract the token from "Bearer <token>"
   const token = authHeader.startsWith("Bearer ")
     ? authHeader.slice(7)
     : null;
 
+    // Reject request if no token is provided
   if (!token) return res.status(401).json({ message: "Missing token" });
 
   try {
+    // Verify token signature and expiration
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; // { id, role, email }
+
+    // Attach user info to the request for later use
+    req.user = payload; 
     next();
   } catch {
+    // Reject invalid or expired tokens
     return res.status(401).json({ message: "Invalid/expired token" });
   }
 }

@@ -1,11 +1,8 @@
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 
-/**
- * MySQL connection pool (shared across the app).
- * Using a pool avoids creating a new DB connection per request.
- */
 
+// Create a reusable MySQL connection pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),

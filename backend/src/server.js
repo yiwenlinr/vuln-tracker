@@ -14,12 +14,13 @@ const app = express();
 // Security headers
 app.use(helmet());
 
-// Request logger (method, path, status, response time)
+// Log incoming requests in development format
 app.use(morgan("dev"));
 
 // Parse JSON bodies into req.body
 app.use(express.json());
 
+// Allow requests from the frontend app
 app.use(
   cors({
     origin: "http://localhost:5173",

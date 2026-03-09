@@ -1,17 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
 
+  // Local state for login form
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
 
+// Local state for login errors
   const [error, setError] = useState("");
 
+  // Update form state on input changes
   function handleChange(e) {
     setForm({
       ...form,
@@ -19,12 +22,15 @@ export default function LoginPage() {
     });
   }
 
+  // Submit login request to the backend
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
     try {
       const response = await api.post("/auth/login", form);
+
+      // Save session data locally
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
       navigate("/dashboard");
@@ -32,6 +38,15 @@ export default function LoginPage() {
       setError(err.response?.data?.message || "Login failed");
     }
   }
+
+// Redirect already authenticated users to the dashboard
+  useEffect(() => {
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    navigate("/dashboard");
+  }
+}, []);
 
   return (
     <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "Arial" }}>

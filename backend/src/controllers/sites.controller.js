@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 
+// Return all sites ordered by newest first
 async function getSites(req, res) {
   try {
     const [rows] = await pool.query(
@@ -15,16 +16,19 @@ async function getSites(req, res) {
   }
 }
 
+// Create a new site record
 async function createSite(req, res) {
   try {
     const { name, url, owner, environment, criticality } = req.body;
 
+    // Validate required fields
     if (!name || !url) {
       return res.status(400).json({
         message: "name and url are required",
       });
     }
 
+    // Validate allowed enum-like values
     const allowedEnvironments = ["prod", "dev", "staging"];
     const allowedCriticalities = ["low", "medium", "high"];
 
@@ -43,6 +47,7 @@ async function createSite(req, res) {
       });
     }
 
+    // Insert the site into the database
     const [result] = await pool.query(
       `INSERT INTO sites (name, url, owner, environment, criticality)
        VALUES (?, ?, ?, ?, ?)`,
@@ -67,6 +72,7 @@ async function createSite(req, res) {
   }
 }
 
+// Soft-archive a site instead of deleting it
 async function archiveSite(req, res) {
   try {
     const { id } = req.params;

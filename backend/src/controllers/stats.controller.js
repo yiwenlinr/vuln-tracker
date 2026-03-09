@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 
+// Return aggregated dashboard stats for sites and findings
 async function getStats(req, res) {
   try {
     const [[sitesTotal]] = await pool.query(

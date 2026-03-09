@@ -1,0 +1,252 @@
+/* Global theme variables */
+:root {
+  font-family: Inter, Arial, sans-serif;
+  color: #e5e7eb;
+  background: #0f172a;
+}
+
+/* Ensure padding and borders are included in element size */
+* {
+  box-sizing: border-box;
+}
+
+/* Base page styling */
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  color: #e5e7eb;
+}
+
+/* Remove default link styling */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Base button styling */
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+/* Default button hover state */
+button:hover {
+  background: #1d4ed8;
+}
+
+/* Secondary button variant */
+button.secondary {
+  background: #334155;
+}
+
+button.secondary:hover {
+  background: #475569;
+}
+
+/* Danger button variant */
+button.danger {
+  background: #dc2626;
+}
+
+button.danger:hover {
+  background: #b91c1c;
+}
+
+/* Shared styling for form controls */
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #111827;
+  color: #e5e7eb;
+}
+
+/* Allow textarea vertical resizing only */
+textarea {
+  resize: vertical;
+}
+
+/* Main page width and spacing wrapper */
+.page-container {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+/* Reusable top navigation/header row */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+/* Action area inside the top bar */
+.topbar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Generic card container used for sections */
+.card {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  margin-bottom: 24px;
+}
+
+/* Generic grid helper */
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+/* Three-column grid layout */
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Small stat summary card */
+.stat-card {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 18px;
+}
+
+/* Small label above a stat value */
+.stat-label {
+  color: #94a3b8;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+/* Large stat number styling */
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+/* Make wide tables scroll horizontally on smaller screens */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+/* Base table styling */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+/* Shared cell styling */
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #334155;
+  text-align: left;
+}
+
+/* Header cells styling */
+th {
+  color: #93c5fd;
+  font-size: 14px;
+}
+
+/* Generic badge style used for status/severity labels */
+.badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Severity badge colors */
+.badge-critical {
+  background: rgba(127, 29, 29, 0.9);
+  color: #fecaca;
+}
+
+.badge-high {
+  background: rgba(120, 53, 15, 0.9);
+  color: #fdba74;
+}
+
+.badge-medium {
+  background: rgba(113, 63, 18, 0.9);
+  color: #fde68a;
+}
+
+.badge-low {
+  background: rgba(20, 83, 45, 0.9);
+  color: #bbf7d0;
+}
+
+/* Finding status badge colors */
+.badge-open {
+  background: rgba(127, 29, 29, 0.85);
+  color: #fecaca;
+}
+
+.badge-in_progress {
+  background: rgba(30, 64, 175, 0.85);
+  color: #bfdbfe;
+}
+
+.badge-fixed {
+  background: rgba(20, 83, 45, 0.85);
+  color: #bbf7d0;
+}
+
+.badge-accepted {
+  background: rgba(88, 28, 135, 0.85);
+  color: #e9d5ff;
+}
+
+.badge-false_positive {
+  background: rgba(51, 65, 85, 0.9);
+  color: #cbd5e1;
+}
+
+/* Site status badge colors */
+.badge-active {
+  background: rgba(20, 83, 45, 0.85);
+  color: #bbf7d0;
+}
+
+.badge-archived {
+  background: rgba(71, 85, 105, 0.9);
+  color: #cbd5e1;
+}
+
+/* Error text used for validation or API issues */
+.error-text {
+  color: #fca5a5;
+  margin-top: 10px;
+}
+
+/* Muted helper text */
+.muted {
+  color: #94a3b8;
+}
+
+/* Consistent section title spacing */
+.section-title {
+  margin-top: 0;
+  margin-bottom: 16px;
+}

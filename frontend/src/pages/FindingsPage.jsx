@@ -2,14 +2,32 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
+// Return the CSS badge class for a finding severity value
+function getSeverityBadgeClass(severity) {
+  return `badge badge-${severity}`;
+}
+
+// Return the CSS badge class for a finding status value
+function getStatusBadgeClass(status) {
+  return `badge badge-${status}`;
+}
+
 export default function FindingsPage() {
   const navigate = useNavigate();
 
+  // Store all findings returned by the backend
   const [findings, setFindings] = useState([]);
+
+  // Store active sites to populate the site selector
   const [sites, setSites] = useState([]);
+
+  // Store user-facing error messages
   const [error, setError] = useState("");
+
+  // Track loading state while page data is being fetched
   const [loading, setLoading] = useState(true);
 
+  // Local form state for creating a new finding
   const [form, setForm] = useState({
     site_id: "",
     title: "",
@@ -23,6 +41,7 @@ export default function FindingsPage() {
     recommendation: "",
   });
 
+  // Load findings and sites in parallel
   async function loadData() {
     try {
       setLoading(true);
@@ -33,9 +52,13 @@ export default function FindingsPage() {
       ]);
 
       setFindings(findingsRes.data);
+
+      // Only active sites should be available for new findings
       setSites(sitesRes.data.filter((site) => site.status === "active"));
+
       setError("");
     } catch (err) {
+      // If authentication fails, clear local session and redirect to login
       if (err.response?.status === 401) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -48,10 +71,12 @@ export default function FindingsPage() {
     }
   }
 
+  // Load data once when the page is mounted
   useEffect(() => {
     loadData();
   }, []);
 
+  // Update form state when any input changes
   function handleChange(e) {
     setForm({
       ...form,
@@ -59,6 +84,7 @@ export default function FindingsPage() {
     });
   }
 
+  // Submit a new finding to the backend
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -66,10 +92,12 @@ export default function FindingsPage() {
     try {
       await api.post("/findings", {
         ...form,
+        // Convert expected numeric fields before sending them
         site_id: Number(form.site_id),
         cvss_score: form.cvss_score === "" ? null : Number(form.cvss_score),
       });
 
+      // Reset the form after successful creation
       setForm({
         site_id: "",
         title: "",
@@ -83,12 +111,14 @@ export default function FindingsPage() {
         recommendation: "",
       });
 
+      // Reload findings so the new entry appears immediately
       loadData();
     } catch (err) {
       setError(err.response?.data?.message || "Could not create finding");
     }
   }
 
+  // Quick demo action to advance a finding through its workflow
   async function handleQuickUpdate(id, currentSeverity, currentStatus) {
     setError("");
 
@@ -111,6 +141,7 @@ export default function FindingsPage() {
     }
   }
 
+  // Clear local session and go back to login
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -118,33 +149,35 @@ export default function FindingsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: "40px auto", fontFamily: "Arial" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <h1>Findings</h1>
+    <div className="page-container">
+      <div className="topbar">
+        <div>
+          <h1>Findings</h1>
+          <p className="muted">
+            Track security issues, remediation progress, and risk level
+          </p>
+        </div>
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-          <button onClick={() => navigate("/sites")}>Sites</button>
-          <button onClick={handleLogout}>Logout</button>
+        <div className="topbar-actions">
+          {/* Navigate to the main dashboard */}
+          <button className="secondary" onClick={() => navigate("/dashboard")}>
+            Dashboard
+          </button>
+
+          {/* Navigate to sites management */}
+          <button className="secondary" onClick={() => navigate("/sites")}>
+            Sites
+          </button>
+
+          {/* End the current session */}
+          <button className="danger" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
       </div>
 
-      <div
-        style={{
-          border: "1px solid #ccc",
-          padding: 20,
-          borderRadius: 10,
-          marginBottom: 24,
-        }}
-      >
-        <h2>Create Finding</h2>
+      <div className="card">
+        <h2 className="section-title">Create Finding</h2>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 12 }}>
@@ -153,7 +186,6 @@ export default function FindingsPage() {
               name="site_id"
               value={form.site_id}
               onChange={handleChange}
-              style={{ width: "100%", padding: 8, marginTop: 4 }}
             >
               <option value="">Select a site</option>
               {sites.map((site) => (
@@ -171,18 +203,17 @@ export default function FindingsPage() {
               name="title"
               value={form.title}
               onChange={handleChange}
-              style={{ width: "100%", padding: 8, marginTop: 4 }}
+              placeholder="e.g. SQL Injection in login form"
             />
           </div>
 
-          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <div style={{ flex: 1 }}>
+          <div className="grid grid-3" style={{ marginBottom: 12 }}>
+            <div>
               <label>Severity</label>
               <select
                 name="severity"
                 value={form.severity}
                 onChange={handleChange}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
               >
                 <option value="critical">critical</option>
                 <option value="high">high</option>
@@ -191,13 +222,12 @@ export default function FindingsPage() {
               </select>
             </div>
 
-            <div style={{ flex: 1 }}>
+            <div>
               <label>Status</label>
               <select
                 name="status"
                 value={form.status}
                 onChange={handleChange}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
               >
                 <option value="open">open</option>
                 <option value="in_progress">in_progress</option>
@@ -206,32 +236,8 @@ export default function FindingsPage() {
                 <option value="false_positive">false_positive</option>
               </select>
             </div>
-          </div>
 
-          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label>OWASP</label>
-              <input
-                type="text"
-                name="owasp"
-                value={form.owasp}
-                onChange={handleChange}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
-              />
-            </div>
-
-            <div style={{ flex: 1 }}>
-              <label>CWE</label>
-              <input
-                type="text"
-                name="cwe"
-                value={form.cwe}
-                onChange={handleChange}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
-              />
-            </div>
-
-            <div style={{ flex: 1 }}>
+            <div>
               <label>CVSS Score</label>
               <input
                 type="number"
@@ -239,7 +245,31 @@ export default function FindingsPage() {
                 name="cvss_score"
                 value={form.cvss_score}
                 onChange={handleChange}
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
+                placeholder="e.g. 8.7"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-3" style={{ marginBottom: 12 }}>
+            <div>
+              <label>OWASP</label>
+              <input
+                type="text"
+                name="owasp"
+                value={form.owasp}
+                onChange={handleChange}
+                placeholder="e.g. A03"
+              />
+            </div>
+
+            <div>
+              <label>CWE</label>
+              <input
+                type="text"
+                name="cwe"
+                value={form.cwe}
+                onChange={handleChange}
+                placeholder="e.g. CWE-89"
               />
             </div>
           </div>
@@ -251,7 +281,7 @@ export default function FindingsPage() {
               value={form.description}
               onChange={handleChange}
               rows="3"
-              style={{ width: "100%", padding: 8, marginTop: 4 }}
+              placeholder="Describe the issue and impact"
             />
           </div>
 
@@ -262,7 +292,7 @@ export default function FindingsPage() {
               value={form.evidence}
               onChange={handleChange}
               rows="3"
-              style={{ width: "100%", padding: 8, marginTop: 4 }}
+              placeholder="Add proof of concept, error messages, or test results"
             />
           </div>
 
@@ -273,7 +303,7 @@ export default function FindingsPage() {
               value={form.recommendation}
               onChange={handleChange}
               rows="3"
-              style={{ width: "100%", padding: 8, marginTop: 4 }}
+              placeholder="Describe the remediation or mitigation"
             />
           </div>
 
@@ -281,84 +311,81 @@ export default function FindingsPage() {
         </form>
       </div>
 
-      <div
-        style={{
-          border: "1px solid #ccc",
-          padding: 20,
-          borderRadius: 10,
-        }}
-      >
-        <h2>Finding List</h2>
+      <div className="card">
+        <h2 className="section-title">Finding List</h2>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
-        {loading && <p>Loading findings...</p>}
+        {/* Show API or action-related errors */}
+        {error && <p className="error-text">{error}</p>}
 
-        {!loading && findings.length === 0 && <p>No findings found.</p>}
+        {/* Show loading state before findings are available */}
+        {loading && <p className="muted">Loading findings...</p>}
 
+        {/* Show empty state if there are no findings */}
+        {!loading && findings.length === 0 && (
+          <p className="muted">No findings found.</p>
+        )}
+
+        {/* Render findings table when data exists */}
         {!loading && findings.length > 0 && (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              marginTop: 12,
-            }}
-          >
-            <thead>
-              <tr>
-                <th style={thStyle}>Site</th>
-                <th style={thStyle}>Title</th>
-                <th style={thStyle}>Severity</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>OWASP</th>
-                <th style={thStyle}>CWE</th>
-                <th style={thStyle}>CVSS</th>
-                <th style={thStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.map((finding) => (
-                <tr key={finding.id}>
-                  <td style={tdStyle}>{finding.site_name || finding.site_id}</td>
-                  <td style={tdStyle}>{finding.title}</td>
-                  <td style={tdStyle}>{finding.severity}</td>
-                  <td style={tdStyle}>{finding.status}</td>
-                  <td style={tdStyle}>{finding.owasp || "-"}</td>
-                  <td style={tdStyle}>{finding.cwe || "-"}</td>
-                  <td style={tdStyle}>{finding.cvss_score ?? "-"}</td>
-                  <td style={tdStyle}>
-                    {finding.status !== "fixed" ? (
-                      <button
-                        onClick={() =>
-                          handleQuickUpdate(
-                            finding.id,
-                            finding.severity,
-                            finding.status
-                          )
-                        }
-                      >
-                        Advance Status
-                      </button>
-                    ) : (
-                      <span>Fixed</span>
-                    )}
-                  </td>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Title</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>OWASP</th>
+                  <th>CWE</th>
+                  <th>CVSS</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {findings.map((finding) => (
+                  <tr key={finding.id}>
+                    <td>{finding.site_name || finding.site_id}</td>
+                    <td>{finding.title}</td>
+                    <td>
+                      <span className={getSeverityBadgeClass(finding.severity)}>
+                        {finding.severity}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={getStatusBadgeClass(finding.status)}>
+                        {finding.status}
+                      </span>
+                    </td>
+                    <td>{finding.owasp || "-"}</td>
+                    <td>{finding.cwe || "-"}</td>
+                    <td>{finding.cvss_score ?? "-"}</td>
+                    <td>
+                      {/* Quick workflow action for demo purposes */}
+                      {finding.status !== "fixed" ? (
+                        <button
+                          className="secondary"
+                          onClick={() =>
+                            handleQuickUpdate(
+                              finding.id,
+                              finding.severity,
+                              finding.status
+                            )
+                          }
+                        >
+                          Advance Status
+                        </button>
+                      ) : (
+                        <span className="muted">Fixed</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-const thStyle = {
-  borderBottom: "1px solid #ccc",
-  textAlign: "left",
-  padding: "10px",
-};
-
-const tdStyle = {
-  borderBottom: "1px solid #eee",
-  padding: "10px",
-};

@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 
+// Return all findings with their related site name
 async function getFindings(req, res) {
   try {
     const [rows] = await pool.query(
@@ -30,6 +31,7 @@ async function getFindings(req, res) {
   }
 }
 
+// Return findings for a single site
 async function getFindingsBySite(req, res) {
   try {
     const { siteId } = req.params;
@@ -62,6 +64,7 @@ async function getFindingsBySite(req, res) {
   }
 }
 
+// Create a new finding linked to an existing site
 async function createFinding(req, res) {
   try {
     const {
@@ -77,12 +80,14 @@ async function createFinding(req, res) {
       recommendation,
     } = req.body;
 
+    // Validate required fields
     if (!site_id || !title) {
       return res.status(400).json({
         message: "site_id and title are required",
       });
     }
 
+    // Validate allowed values
     const allowedSeverities = ["critical", "high", "medium", "low"];
     const allowedStatuses = [
       "open",
@@ -103,6 +108,7 @@ async function createFinding(req, res) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
+    // Make sure the related site exists
     const [sites] = await pool.query(
       "SELECT id FROM sites WHERE id = ?",
       [site_id]
@@ -112,6 +118,7 @@ async function createFinding(req, res) {
       return res.status(404).json({ message: "Site not found" });
     }
 
+    // Insert the finding
     const [result] = await pool.query(
       `INSERT INTO findings
       (site_id, title, severity, status, owasp, cwe, cvss_score, description, evidence, recommendation)
@@ -152,6 +159,7 @@ async function createFinding(req, res) {
   }
 }
 
+// Update selected fields of an existing finding
 async function updateFinding(req, res) {
   try {
     const { id } = req.params;
@@ -176,6 +184,7 @@ async function updateFinding(req, res) {
       "false_positive",
     ];
 
+    // Fetch the current finding before updating
     const [existing] = await pool.query(
       "SELECT * FROM findings WHERE id = ?",
       [id]
@@ -190,6 +199,7 @@ async function updateFinding(req, res) {
     const finalSeverity = severity ?? currentFinding.severity;
     const finalStatus = status ?? currentFinding.status;
 
+    // Validate updated values
     if (!allowedSeverities.includes(finalSeverity)) {
       return res.status(400).json({ message: "Invalid severity" });
     }
@@ -198,6 +208,7 @@ async function updateFinding(req, res) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
+    // Update only the provided fields and keep current values otherwis
     await pool.query(
       `UPDATE findings
        SET title = ?, severity = ?, status = ?, owasp = ?, cwe = ?, cvss_score = ?,

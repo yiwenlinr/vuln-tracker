@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
+// Import finding controller handlers
 const {
   getFindings,
   getFindingsBySite,
@@ -8,6 +9,7 @@ const {
   updateFinding,
 } = require("../controllers/findings.controller");
 
+// Import JWT protection middleware
 const { requireAuth } = require("../middlewares/auth.middleware");
 
 router.get("/", requireAuth, getFindings);

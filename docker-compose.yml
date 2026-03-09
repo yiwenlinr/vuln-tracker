@@ -11,7 +11,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql # Persist database files between container restarts
 
 volumes:
-  mysql_data:
+  mysql_data: # Named Docker volume for MySQL persistent storage
