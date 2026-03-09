@@ -11,8 +11,13 @@ const statsRoutes = require("./routes/stats.routes");
 
 const app = express();
 
+// Security headers
 app.use(helmet());
+
+// Request logger (method, path, status, response time)
 app.use(morgan("dev"));
+
+// Parse JSON bodies into req.body
 app.use(express.json());
 
 app.use(
@@ -22,6 +27,9 @@ app.use(
   })
 );
 
+/**
+ * Health check endpoint (useful for quick sanity checks and monitoring).
+ */
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
@@ -31,6 +39,9 @@ app.use("/sites", siteRoutes);
 app.use("/findings", findingRoutes);
 app.use("/stats", statsRoutes);
 
+/**
+ * Start HTTP server.
+ */
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`API running on http://localhost:${port}`);

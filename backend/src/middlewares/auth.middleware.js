@@ -1,5 +1,11 @@
 const jwt = require("jsonwebtoken");
 
+/**
+ * Auth middleware (JWT).
+ * - Expects: Authorization: Bearer <token>
+ * - On success: attaches decoded payload to req.user
+ * - On failure: returns 401
+ */
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ")
