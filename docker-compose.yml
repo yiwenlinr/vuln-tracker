@@ -3,15 +3,18 @@ services:
     image: mysql:8.0
     container_name: vulntracker-mysql
     restart: unless-stopped
+    # Credentials come from the root .env file (see .env.example)
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: vulntracker
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppassword
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-vulntracker}
+      MYSQL_USER: ${MYSQL_USER:?set MYSQL_USER in .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306" # Only reachable from this machine
     volumes:
       - mysql_data:/var/lib/mysql # Persist database files between container restarts
+      # Create the tables automatically the first time the volume is initialized
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 
 volumes:
   mysql_data: # Named Docker volume for MySQL persistent storage

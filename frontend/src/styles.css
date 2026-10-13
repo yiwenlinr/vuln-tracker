@@ -240,6 +240,12 @@ th {
   margin-top: 10px;
 }
 
+/* Confirmation text after a successful action */
+.success-text {
+  color: #86efac;
+  margin-top: 10px;
+}
+
 /* Muted helper text */
 .muted {
   color: #94a3b8;
@@ -249,4 +255,66 @@ th {
 .section-title {
   margin-top: 0;
   margin-bottom: 16px;
+}
+
+/* Vertical spacing between form fields and detail blocks */
+.field {
+  margin-bottom: 12px;
+}
+
+/* Grid item spanning two columns */
+.span-2 {
+  grid-column: span 2;
+}
+
+/* Disabled buttons (e.g. while saving) */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button.full-width {
+  width: 100%;
+}
+
+/* Centered login card */
+.login-container {
+  max-width: 400px;
+  margin: 80px auto;
+  padding: 0 20px;
+}
+
+/* Logged-in user name and role in the top bar */
+.user-info {
+  align-self: center;
+  font-size: 14px;
+}
+
+/* Buttons inside a table cell */
+.actions-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Keep line breaks in long text such as evidence */
+.pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Stack grids and the top bar on small screens */
+@media (max-width: 768px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: auto;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

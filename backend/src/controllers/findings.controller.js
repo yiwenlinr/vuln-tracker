@@ -1,5 +1,18 @@
 const pool = require("../db/pool");
 
+// Columns that PATCH /findings/:id is allowed to change
+const UPDATABLE_FIELDS = [
+  "title",
+  "severity",
+  "status",
+  "owasp",
+  "cwe",
+  "cvss_score",
+  "description",
+  "evidence",
+  "recommendation",
+];
+
 // Return all findings with their related site name
 async function getFindings(req, res) {
   try {
@@ -27,7 +40,7 @@ async function getFindings(req, res) {
     return res.json(rows);
   } catch (error) {
     console.error("Get findings error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
@@ -60,18 +73,19 @@ async function getFindingsBySite(req, res) {
     return res.json(rows);
   } catch (error) {
     console.error("Get findings by site error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
 // Create a new finding linked to an existing site
 async function createFinding(req, res) {
   try {
+    // Body is validated by createFindingSchema (defaults already applied)
     const {
       site_id,
       title,
-      severity,
-      status,
+      severity: finalSeverity,
+      status: finalStatus,
       owasp,
       cwe,
       cvss_score,
@@ -80,42 +94,20 @@ async function createFinding(req, res) {
       recommendation,
     } = req.body;
 
-    // Validate required fields
-    if (!site_id || !title) {
-      return res.status(400).json({
-        message: "site_id and title are required",
-      });
-    }
-
-    // Validate allowed values
-    const allowedSeverities = ["critical", "high", "medium", "low"];
-    const allowedStatuses = [
-      "open",
-      "in_progress",
-      "fixed",
-      "accepted",
-      "false_positive",
-    ];
-
-    const finalSeverity = severity || "low";
-    const finalStatus = status || "open";
-
-    if (!allowedSeverities.includes(finalSeverity)) {
-      return res.status(400).json({ message: "Invalid severity" });
-    }
-
-    if (!allowedStatuses.includes(finalStatus)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    // Make sure the related site exists
+    // Make sure the related site exists and is still active
     const [sites] = await pool.query(
-      "SELECT id FROM sites WHERE id = ?",
+      "SELECT id, status FROM sites WHERE id = ?",
       [site_id]
     );
 
     if (sites.length === 0) {
-      return res.status(404).json({ message: "Site not found" });
+      return res.status(404).json({ message: "Sitio no encontrado" });
+    }
+
+    if (sites[0].status !== "active") {
+      return res.status(400).json({
+        message: "No se pueden agregar hallazgos a un sitio archivado",
+      });
     }
 
     // Insert the finding
@@ -138,7 +130,7 @@ async function createFinding(req, res) {
     );
 
     return res.status(201).json({
-      message: "Finding created successfully",
+      message: "Hallazgo creado correctamente",
       finding: {
         id: result.insertId,
         site_id,
@@ -155,7 +147,7 @@ async function createFinding(req, res) {
     });
   } catch (error) {
     console.error("Create finding error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
@@ -163,77 +155,38 @@ async function createFinding(req, res) {
 async function updateFinding(req, res) {
   try {
     const { id } = req.params;
-    const {
-      title,
-      severity,
-      status,
-      owasp,
-      cwe,
-      cvss_score,
-      description,
-      evidence,
-      recommendation,
-    } = req.body;
 
-    const allowedSeverities = ["critical", "high", "medium", "low"];
-    const allowedStatuses = [
-      "open",
-      "in_progress",
-      "fixed",
-      "accepted",
-      "false_positive",
-    ];
-
-    // Fetch the current finding before updating
-    const [existing] = await pool.query(
-      "SELECT * FROM findings WHERE id = ?",
-      [id]
+    // Body is validated by updateFindingSchema. Only the keys actually sent are
+    // updated, so sending null clears a field while omitting it keeps it.
+    const fields = UPDATABLE_FIELDS.filter((field) =>
+      Object.hasOwn(req.body, field)
     );
 
-    if (existing.length === 0) {
-      return res.status(404).json({ message: "Finding not found" });
+    if (fields.length === 0) {
+      return res.status(400).json({ message: "No hay campos para actualizar" });
     }
 
-    const currentFinding = existing[0];
-
-    const finalSeverity = severity ?? currentFinding.severity;
-    const finalStatus = status ?? currentFinding.status;
-
-    // Validate updated values
-    if (!allowedSeverities.includes(finalSeverity)) {
-      return res.status(400).json({ message: "Invalid severity" });
-    }
-
-    if (!allowedStatuses.includes(finalStatus)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    // Update only the provided fields and keep current values otherwis
-    await pool.query(
-      `UPDATE findings
-       SET title = ?, severity = ?, status = ?, owasp = ?, cwe = ?, cvss_score = ?,
-           description = ?, evidence = ?, recommendation = ?
-       WHERE id = ?`,
-      [
-        title ?? currentFinding.title,
-        finalSeverity,
-        finalStatus,
-        owasp ?? currentFinding.owasp,
-        cwe ?? currentFinding.cwe,
-        cvss_score ?? currentFinding.cvss_score,
-        description ?? currentFinding.description,
-        evidence ?? currentFinding.evidence,
-        recommendation ?? currentFinding.recommendation,
-        id,
-      ]
+    // Column names come from the UPDATABLE_FIELDS whitelist, values are parameterized
+    const setClause = fields.map((field) => `${field} = ?`).join(", ");
+    const values = fields.map((field) =>
+      req.body[field] === "" ? null : req.body[field]
     );
+
+    const [result] = await pool.query(
+      `UPDATE findings SET ${setClause} WHERE id = ?`,
+      [...values, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Hallazgo no encontrado" });
+    }
 
     return res.json({
-      message: "Finding updated successfully",
+      message: "Hallazgo actualizado correctamente",
     });
   } catch (error) {
     console.error("Update finding error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 

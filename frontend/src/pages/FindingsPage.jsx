@@ -1,80 +1,84 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import api from "../services/api";
+import { canEdit, getCurrentUser } from "../services/session";
+import Layout from "../components/Layout";
+import Badge from "../components/Badge";
+import FindingDetail from "../components/FindingDetail";
+import FindingFormFields from "../components/FindingFormFields";
+import {
+  EMPTY_FINDING_FORM,
+  FINDING_STATUSES,
+  NEXT_STATUS,
+  SEVERITIES,
+  toFindingPayload,
+} from "../utils/findings";
+import { labelFor } from "../utils/i18n";
 
-// Return the CSS badge class for a finding severity value
-function getSeverityBadgeClass(severity) {
-  return `badge badge-${severity}`;
-}
-
-// Return the CSS badge class for a finding status value
-function getStatusBadgeClass(status) {
-  return `badge badge-${status}`;
-}
+const EMPTY_FILTERS = { site_id: "", severity: "", status: "" };
 
 export default function FindingsPage() {
-  const navigate = useNavigate();
+  const user = getCurrentUser();
 
   // Store all findings returned by the backend
   const [findings, setFindings] = useState([]);
 
-  // Store active sites to populate the site selector
+  // Store all sites (archived ones are still needed for the filter)
   const [sites, setSites] = useState([]);
 
-  // Store user-facing error messages
+  // User-facing error and success messages
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   // Track loading state while page data is being fetched
   const [loading, setLoading] = useState(true);
 
   // Local form state for creating a new finding
-  const [form, setForm] = useState({
-    site_id: "",
-    title: "",
-    severity: "low",
-    status: "open",
-    owasp: "",
-    cwe: "",
-    cvss_score: "",
-    description: "",
-    evidence: "",
-    recommendation: "",
-  });
+  const [form, setForm] = useState(EMPTY_FINDING_FORM);
+
+  // Table filters and the finding opened in the detail view
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [selectedId, setSelectedId] = useState(null);
 
   // Load findings and sites in parallel
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-
       const [findingsRes, sitesRes] = await Promise.all([
         api.get("/findings"),
         api.get("/sites"),
       ]);
 
       setFindings(findingsRes.data);
-
-      // Only active sites should be available for new findings
-      setSites(sitesRes.data.filter((site) => site.status === "active"));
-
-      setError("");
-    } catch (err) {
-      // If authentication fails, clear local session and redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/");
-      } else {
-        setError("Could not load findings");
-      }
+      setSites(sitesRes.data);
+    } catch {
+      // Expired sessions (401) are handled by the api.js interceptor
+      setError("No se pudieron cargar los hallazgos");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   // Load data once when the page is mounted
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
+
+  // Only active sites should be available for new findings
+  const activeSites = sites.filter((site) => site.status === "active");
+
+  const visibleFindings = findings.filter(
+    (finding) =>
+      (!filters.site_id || finding.site_id === Number(filters.site_id)) &&
+      (!filters.severity || finding.severity === filters.severity) &&
+      (!filters.status || finding.status === filters.status)
+  );
+
+  const selectedFinding = findings.find((finding) => finding.id === selectedId);
+
+  // Clear old messages before a new action
+  function resetMessages() {
+    setError("");
+    setNotice("");
+  }
 
   // Update form state when any input changes
   function handleChange(e) {
@@ -84,110 +88,96 @@ export default function FindingsPage() {
     });
   }
 
+  function handleFilterChange(e) {
+    setFilters({
+      ...filters,
+      [e.target.name]: e.target.value,
+    });
+  }
+
   // Submit a new finding to the backend
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
+    resetMessages();
 
     try {
-      await api.post("/findings", {
-        ...form,
-        // Convert expected numeric fields before sending them
-        site_id: Number(form.site_id),
-        cvss_score: form.cvss_score === "" ? null : Number(form.cvss_score),
-      });
+      await api.post("/findings", toFindingPayload(form));
 
-      // Reset the form after successful creation
-      setForm({
-        site_id: "",
-        title: "",
-        severity: "low",
-        status: "open",
-        owasp: "",
-        cwe: "",
-        cvss_score: "",
-        description: "",
-        evidence: "",
-        recommendation: "",
-      });
-
-      // Reload findings so the new entry appears immediately
+      // Reset the form and reload so the new entry appears immediately
+      setForm(EMPTY_FINDING_FORM);
+      setNotice(`Hallazgo "${form.title}" creado correctamente`);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || "Could not create finding");
+      setError(err.response?.data?.message || "No se pudo crear el hallazgo");
     }
   }
 
-  // Quick demo action to advance a finding through its workflow
-  async function handleQuickUpdate(id, currentSeverity, currentStatus) {
-    setError("");
+  // Advance a finding one step through its workflow
+  async function handleQuickUpdate(finding) {
+    resetMessages();
+    const nextStatus = NEXT_STATUS[finding.status];
 
     try {
-      const nextStatus =
-        currentStatus === "open"
-          ? "in_progress"
-          : currentStatus === "in_progress"
-          ? "fixed"
-          : currentStatus;
-
-      await api.patch(`/findings/${id}`, {
-        severity: currentSeverity,
-        status: nextStatus,
-      });
-
+      await api.patch(`/findings/${finding.id}`, { status: nextStatus });
+      setNotice(`"${finding.title}" pasó a ${labelFor(nextStatus)}`);
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || "Could not update finding");
+      setError(err.response?.data?.message || "No se pudo actualizar el hallazgo");
     }
   }
 
-  // Clear local session and go back to login
-  function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/");
+  // Called by the detail view after a successful edit
+  function handleSaved(message) {
+    resetMessages();
+    setNotice(message);
+    loadData();
   }
 
   return (
-    <div className="page-container">
-      <div className="topbar">
-        <div>
-          <h1>Findings</h1>
-          <p className="muted">
-            Track security issues, remediation progress, and risk level
-          </p>
+    <Layout
+      title="Hallazgos"
+      subtitle="Da seguimiento a los problemas de seguridad, su remediación y su nivel de riesgo"
+    >
+      {/* Viewers can only read */}
+      {canEdit(user) && (
+        <div className="card">
+          <h2 className="section-title">Crear hallazgo</h2>
+
+          <form onSubmit={handleSubmit}>
+            <FindingFormFields
+              form={form}
+              onChange={handleChange}
+              sites={activeSites}
+            />
+
+            <button type="submit">Crear hallazgo</button>
+          </form>
         </div>
+      )}
 
-        <div className="topbar-actions">
-          {/* Navigate to the main dashboard */}
-          <button className="secondary" onClick={() => navigate("/dashboard")}>
-            Dashboard
-          </button>
-
-          {/* Navigate to sites management */}
-          <button className="secondary" onClick={() => navigate("/sites")}>
-            Sites
-          </button>
-
-          {/* End the current session */}
-          <button className="danger" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
-      </div>
+      {/* Detail / edit view; keyed so it resets when the finding changes */}
+      {selectedFinding && (
+        <FindingDetail
+          key={`${selectedFinding.id}-${selectedFinding.updated_at}`}
+          finding={selectedFinding}
+          canEdit={canEdit(user)}
+          onClose={() => setSelectedId(null)}
+          onSaved={handleSaved}
+        />
+      )}
 
       <div className="card">
-        <h2 className="section-title">Create Finding</h2>
+        <h2 className="section-title">Lista de hallazgos</h2>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 12 }}>
-            <label>Site</label>
+        <div className="grid grid-3 field">
+          <div>
+            <label>Sitio</label>
             <select
               name="site_id"
-              value={form.site_id}
-              onChange={handleChange}
+              value={filters.site_id}
+              onChange={handleFilterChange}
             >
-              <option value="">Select a site</option>
+              <option value="">Todos los sitios</option>
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>
                   {site.name}
@@ -196,188 +186,105 @@ export default function FindingsPage() {
             </select>
           </div>
 
-          <div style={{ marginBottom: 12 }}>
-            <label>Title</label>
-            <input
-              type="text"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              placeholder="e.g. SQL Injection in login form"
-            />
+          <div>
+            <label>Severidad</label>
+            <select
+              name="severity"
+              value={filters.severity}
+              onChange={handleFilterChange}
+            >
+              <option value="">Todas las severidades</option>
+              {SEVERITIES.map((severity) => (
+                <option key={severity} value={severity}>
+                  {labelFor(severity)}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="grid grid-3" style={{ marginBottom: 12 }}>
-            <div>
-              <label>Severity</label>
-              <select
-                name="severity"
-                value={form.severity}
-                onChange={handleChange}
-              >
-                <option value="critical">critical</option>
-                <option value="high">high</option>
-                <option value="medium">medium</option>
-                <option value="low">low</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Status</label>
-              <select
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-              >
-                <option value="open">open</option>
-                <option value="in_progress">in_progress</option>
-                <option value="fixed">fixed</option>
-                <option value="accepted">accepted</option>
-                <option value="false_positive">false_positive</option>
-              </select>
-            </div>
-
-            <div>
-              <label>CVSS Score</label>
-              <input
-                type="number"
-                step="0.1"
-                name="cvss_score"
-                value={form.cvss_score}
-                onChange={handleChange}
-                placeholder="e.g. 8.7"
-              />
-            </div>
+          <div>
+            <label>Estado</label>
+            <select
+              name="status"
+              value={filters.status}
+              onChange={handleFilterChange}
+            >
+              <option value="">Todos los estados</option>
+              {FINDING_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {labelFor(status)}
+                </option>
+              ))}
+            </select>
           </div>
+        </div>
 
-          <div className="grid grid-3" style={{ marginBottom: 12 }}>
-            <div>
-              <label>OWASP</label>
-              <input
-                type="text"
-                name="owasp"
-                value={form.owasp}
-                onChange={handleChange}
-                placeholder="e.g. A03"
-              />
-            </div>
-
-            <div>
-              <label>CWE</label>
-              <input
-                type="text"
-                name="cwe"
-                value={form.cwe}
-                onChange={handleChange}
-                placeholder="e.g. CWE-89"
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <label>Description</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Describe the issue and impact"
-            />
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <label>Evidence</label>
-            <textarea
-              name="evidence"
-              value={form.evidence}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Add proof of concept, error messages, or test results"
-            />
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <label>Recommendation</label>
-            <textarea
-              name="recommendation"
-              value={form.recommendation}
-              onChange={handleChange}
-              rows="3"
-              placeholder="Describe the remediation or mitigation"
-            />
-          </div>
-
-          <button type="submit">Create Finding</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2 className="section-title">Finding List</h2>
-
-        {/* Show API or action-related errors */}
+        {/* Show API or action-related messages */}
         {error && <p className="error-text">{error}</p>}
+        {notice && <p className="success-text">{notice}</p>}
 
         {/* Show loading state before findings are available */}
-        {loading && <p className="muted">Loading findings...</p>}
+        {loading && <p className="muted">Cargando hallazgos...</p>}
 
         {/* Show empty state if there are no findings */}
         {!loading && findings.length === 0 && (
-          <p className="muted">No findings found.</p>
+          <p className="muted">No hay hallazgos registrados.</p>
+        )}
+
+        {!loading && findings.length > 0 && visibleFindings.length === 0 && (
+          <p className="muted">Ningún hallazgo coincide con los filtros seleccionados.</p>
         )}
 
         {/* Render findings table when data exists */}
-        {!loading && findings.length > 0 && (
+        {!loading && visibleFindings.length > 0 && (
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Site</th>
-                  <th>Title</th>
-                  <th>Severity</th>
-                  <th>Status</th>
+                  <th>Sitio</th>
+                  <th>Título</th>
+                  <th>Severidad</th>
+                  <th>Estado</th>
                   <th>OWASP</th>
                   <th>CWE</th>
                   <th>CVSS</th>
-                  <th>Actions</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
 
               <tbody>
-                {findings.map((finding) => (
+                {visibleFindings.map((finding) => (
                   <tr key={finding.id}>
                     <td>{finding.site_name || finding.site_id}</td>
                     <td>{finding.title}</td>
                     <td>
-                      <span className={getSeverityBadgeClass(finding.severity)}>
-                        {finding.severity}
-                      </span>
+                      <Badge value={finding.severity} />
                     </td>
                     <td>
-                      <span className={getStatusBadgeClass(finding.status)}>
-                        {finding.status}
-                      </span>
+                      <Badge value={finding.status} />
                     </td>
                     <td>{finding.owasp || "-"}</td>
                     <td>{finding.cwe || "-"}</td>
                     <td>{finding.cvss_score ?? "-"}</td>
                     <td>
-                      {/* Quick workflow action for demo purposes */}
-                      {finding.status !== "fixed" ? (
+                      <div className="actions-cell">
                         <button
                           className="secondary"
-                          onClick={() =>
-                            handleQuickUpdate(
-                              finding.id,
-                              finding.severity,
-                              finding.status
-                            )
-                          }
+                          onClick={() => setSelectedId(finding.id)}
                         >
-                          Advance Status
+                          Ver
                         </button>
-                      ) : (
-                        <span className="muted">Fixed</span>
-                      )}
+
+                        {/* Quick workflow action: open → in_progress → fixed */}
+                        {canEdit(user) && NEXT_STATUS[finding.status] && (
+                          <button
+                            className="secondary"
+                            onClick={() => handleQuickUpdate(finding)}
+                          >
+                            Avanzar estado
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -386,6 +293,6 @@ export default function FindingsPage() {
           </div>
         )}
       </div>
-    </div>
+    </Layout>
   );
 }

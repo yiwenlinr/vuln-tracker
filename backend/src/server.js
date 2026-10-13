@@ -1,49 +1,27 @@
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 
-const authRoutes = require("./routes/auth.routes");
-const siteRoutes = require("./routes/sites.routes");
-const findingRoutes = require("./routes/findings.routes");
-const statsRoutes = require("./routes/stats.routes");
+// Refuse to start with a missing or weak JWT secret
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error("JWT_SECRET must be set and at least 32 characters long");
+  process.exit(1);
+}
 
-const app = express();
-
-// Security headers
-app.use(helmet());
-
-// Log incoming requests in development format
-app.use(morgan("dev"));
-
-// Parse JSON bodies into req.body
-app.use(express.json());
-
-// Allow requests from the frontend app
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+const pool = require("./db/pool");
+const app = require("./app");
 
 /**
- * Health check endpoint (useful for quick sanity checks and monitoring).
- */
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
-});
-
-app.use("/auth", authRoutes);
-app.use("/sites", siteRoutes);
-app.use("/findings", findingRoutes);
-app.use("/stats", statsRoutes);
-
-/**
- * Start HTTP server.
+ * Check the database connection, then start the HTTP server.
  */
 const port = process.env.PORT || 4000;
-app.listen(port, () => {
-  console.log(`API running on http://localhost:${port}`);
-});
+
+pool
+  .query("SELECT 1")
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`API running on http://localhost:${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Could not connect to the database:", error.message);
+    process.exit(1);
+  });

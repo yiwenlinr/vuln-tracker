@@ -4,13 +4,9 @@ const pool = require("../db/pool");
 
 async function register(req, res) {
   try {
-    const { name, email, password, role } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "name, email and password are required",
-      });
-    }
+    // Body is validated by registerSchema; the role is never taken from the client
+    const { name, email, password } = req.body;
+    const role = "analyst";
 
     const [existingUsers] = await pool.query(
       "SELECT id FROM users WHERE email = ?",
@@ -18,7 +14,7 @@ async function register(req, res) {
     );
 
     if (existingUsers.length > 0) {
-      return res.status(409).json({ message: "Email already registered" });
+      return res.status(409).json({ message: "El correo ya está registrado" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -26,33 +22,28 @@ async function register(req, res) {
     const [result] = await pool.query(
       `INSERT INTO users (name, email, password_hash, role)
        VALUES (?, ?, ?, ?)`,
-      [name, email, passwordHash, role || "analyst"]
+      [name, email, passwordHash, role]
     );
 
     return res.status(201).json({
-      message: "User registered successfully",
+      message: "Usuario registrado correctamente",
       user: {
         id: result.insertId,
         name,
         email,
-        role: role || "analyst",
+        role,
       },
     });
   } catch (error) {
     console.error("Register error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
 async function login(req, res) {
   try {
+    // Body is validated by loginSchema
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "email and password are required",
-      });
-    }
 
     const [users] = await pool.query(
       "SELECT id, name, email, password_hash, role FROM users WHERE email = ?",
@@ -60,7 +51,7 @@ async function login(req, res) {
     );
 
     if (users.length === 0) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
     const user = users[0];
@@ -68,7 +59,7 @@ async function login(req, res) {
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
     const token = jwt.sign(
@@ -84,7 +75,7 @@ async function login(req, res) {
     );
 
     return res.json({
-      message: "Login successful",
+      message: "Inicio de sesión exitoso",
       token,
       user: {
         id: user.id,
@@ -95,7 +86,7 @@ async function login(req, res) {
     });
   } catch (error) {
     console.error("Login error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 

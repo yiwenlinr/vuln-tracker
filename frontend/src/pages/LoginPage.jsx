@@ -11,7 +11,7 @@ export default function LoginPage() {
     password: "",
   });
 
-// Local state for login errors
+  // Local state for login errors
   const [error, setError] = useState("");
 
   // Update form state on input changes
@@ -35,52 +35,56 @@ export default function LoginPage() {
       localStorage.setItem("user", JSON.stringify(response.data.user));
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      setError(err.response?.data?.message || "No se pudo iniciar sesión");
     }
   }
 
-// Redirect already authenticated users to the dashboard
+  // Redirect already authenticated users to the dashboard
+  // (ProtectedRoute sends them back here if the token has expired)
   useEffect(() => {
-  const token = localStorage.getItem("token");
-
-  if (token) {
-    navigate("/dashboard");
-  }
-}, []);
+    if (localStorage.getItem("token")) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
 
   return (
-    <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "Arial" }}>
-      <h1>Vuln Tracker Login</h1>
+    <div className="login-container">
+      <div className="card">
+        <h1 className="section-title">Vuln Tracker</h1>
+        <p className="muted">Inicia sesión para gestionar sitios y hallazgos</p>
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 12 }}>
-          <label>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
-        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Correo electrónico</label>
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              autoComplete="username"
+              required
+            />
+          </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
-          />
-        </div>
+          <div className="field">
+            <label>Contraseña</label>
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              autoComplete="current-password"
+              required
+            />
+          </div>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+          {error && <p className="error-text">{error}</p>}
 
-        <button type="submit" style={{ padding: "10px 16px" }}>
-          Login
-        </button>
-      </form>
+          <button type="submit" className="full-width">
+            Iniciar sesión
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

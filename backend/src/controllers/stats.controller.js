@@ -3,20 +3,14 @@ const pool = require("../db/pool");
 // Return aggregated dashboard stats for sites and findings
 async function getStats(req, res) {
   try {
-    const [[sitesTotal]] = await pool.query(
-      "SELECT COUNT(*) AS total_sites FROM sites"
-    );
-
-    const [[sitesActive]] = await pool.query(
-      "SELECT COUNT(*) AS active_sites FROM sites WHERE status = 'active'"
-    );
-
-    const [[sitesArchived]] = await pool.query(
-      "SELECT COUNT(*) AS archived_sites FROM sites WHERE status = 'archived'"
-    );
-
-    const [[findingsTotal]] = await pool.query(
-      "SELECT COUNT(*) AS total_findings FROM findings"
+    // Site and finding totals in a single round trip
+    const [[totals]] = await pool.query(
+      `SELECT
+        COUNT(*) AS total_sites,
+        COALESCE(SUM(status = 'active'), 0) AS active_sites,
+        COALESCE(SUM(status = 'archived'), 0) AS archived_sites,
+        (SELECT COUNT(*) FROM findings) AS total_findings
+      FROM sites`
     );
 
     const [findingsBySeverity] = await pool.query(
@@ -35,19 +29,19 @@ async function getStats(req, res) {
 
     return res.json({
       sites: {
-        total: sitesTotal.total_sites,
-        active: sitesActive.active_sites,
-        archived: sitesArchived.archived_sites,
+        total: totals.total_sites,
+        active: Number(totals.active_sites),
+        archived: Number(totals.archived_sites),
       },
       findings: {
-        total: findingsTotal.total_findings,
+        total: totals.total_findings,
         bySeverity: findingsBySeverity,
         byStatus: findingsByStatus,
       },
     });
   } catch (error) {
     console.error("Get stats error:", error.message);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error interno del servidor" });
   }
 }
 
